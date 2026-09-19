@@ -1,0 +1,223 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "GAMMA Knowledge Engine",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Service health"
+          }
+        }
+      }
+    },
+    "/ready": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Dependencies ready"
+          },
+          "503": {
+            "description": "Dependency not ready"
+          }
+        }
+      }
+    },
+    "/v1/sources": {
+      "post": {
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SourceCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Source registered"
+          },
+          "409": {
+            "description": "Idempotency conflict"
+          },
+          "422": {
+            "description": "Validation failure"
+          }
+        }
+      }
+    },
+    "/v1/sources/{source_id}": {
+      "get": {
+        "parameters": [
+          {
+            "name": "source_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Source found"
+          },
+          "404": {
+            "description": "Source absent"
+          }
+        }
+      }
+    },
+    "/v1/ingestion/jobs": {
+      "post": {
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IngestionJobCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Job queued"
+          },
+          "404": {
+            "description": "Source absent"
+          },
+          "422": {
+            "description": "Validation failure"
+          }
+        }
+      }
+    },
+    "/v1/ingestion/jobs/{job_id}": {
+      "get": {
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Job found"
+          },
+          "404": {
+            "description": "Job absent"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "SourceCreate": {
+        "type": "object",
+        "required": ["source_type", "origin", "domain", "governance"],
+        "properties": {
+          "source_type": {
+            "enum": ["document", "dataset", "web", "other"]
+          },
+          "origin": {
+            "type": "object"
+          },
+          "domain": {
+            "type": "string",
+            "minLength": 1
+          },
+          "governance": {
+            "enum": ["public", "deidentified", "governed", "restricted"]
+          },
+          "checksum": {
+            "type": ["string", "null"]
+          },
+          "language": {
+            "type": ["string", "null"]
+          },
+          "owner": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "IngestionJobCreate": {
+        "type": "object",
+        "required": ["source_id", "pipeline_version", "requested_operations"],
+        "properties": {
+          "source_id": {
+            "type": "string"
+          },
+          "pipeline_version": {
+            "type": "string",
+            "minLength": 1
+          },
+          "requested_operations": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            }
+          },
+          "priority": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10,
+            "default": 5
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "required": ["code", "message", "details", "request_id", "retryable"],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "details": {
+            "type": "object"
+          },
+          "request_id": {
+            "type": ["string", "null"]
+          },
+          "retryable": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}
