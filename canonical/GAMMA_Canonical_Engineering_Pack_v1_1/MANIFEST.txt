@@ -1,0 +1,11 @@
+GAMMA Canonical Engineering Pack v1.1
+Generated: 2026-09-16
+
+- 01_GAMMA_Development_Constitution_v1_0.docx
+- 02_GAMMA_Software_Engineering_Handbook_v1_0.docx
+- 03_GAMMA_Knowledge_Engine_Detailed_Technical_Spec_v1_0.docx
+- 04_GAMMA_API_and_Data_Contract_Specification_v1_0.docx
+- 05_GAMMA_Implementation_Pack_Foundation_Sprint_v1_0.docx
+- 06_GAMMA_Agent_Development_and_Review_Protocol_v1_0.docx
+- 07_GAMMA_Definition_of_Done_and_Quality_Gates_v1_0.docx
+- 08_GAMMA_Engineering_Pack_Manifest_v1_1.docx
