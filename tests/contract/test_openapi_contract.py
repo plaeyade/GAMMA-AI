@@ -11,6 +11,8 @@ class OpenAPIContractTests(unittest.TestCase):
         self.assertIn("/ready", contract["paths"])
         self.assertIn("/v1/sources", contract["paths"])
         self.assertIn("/v1/ingestion/jobs", contract["paths"])
+        self.assertIn("/v1/sources/{source_id}/artifacts", contract["paths"])
+        self.assertIn("Artifact", contract["components"]["schemas"])
         self.assertEqual(
             set(contract["components"]["schemas"]["Error"]["required"]),
             {"code", "message", "details", "request_id", "retryable"},
