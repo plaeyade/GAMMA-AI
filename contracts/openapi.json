@@ -83,6 +83,44 @@
         }
       }
     },
+    "/v1/sources/{source_id}/artifacts": {
+      "post": {
+        "parameters": [
+          {
+            "name": "source_id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["file"],
+                "properties": {
+                  "file": { "type": "string", "format": "binary" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Immutable artifact registered" },
+          "404": { "description": "Source absent" },
+          "409": { "description": "Idempotency or immutable storage conflict" },
+          "422": { "description": "Validation failure" }
+        }
+      }
+    },
     "/v1/ingestion/jobs": {
       "post": {
         "parameters": [
@@ -168,7 +206,33 @@
           },
           "owner": {
             "type": ["string", "null"]
+          },
+          "license": {
+            "type": ["string", "null"]
+          },
+          "jurisdiction": {
+            "type": ["string", "null"]
+          },
+          "acquisition_time": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "ingestion_policy": {
+            "type": "object"
           }
+        }
+      },
+      "Artifact": {
+        "type": "object",
+        "required": ["artifact_id", "source_id", "checksum", "mime_type", "size_bytes", "storage_uri"],
+        "properties": {
+          "artifact_id": { "type": "string" },
+          "source_id": { "type": "string" },
+          "checksum": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "mime_type": { "type": "string" },
+          "size_bytes": { "type": "integer", "minimum": 0 },
+          "storage_uri": { "type": "string" },
+          "immutability": { "type": "string", "const": "content_addressed" }
         }
       },
       "IngestionJobCreate": {
