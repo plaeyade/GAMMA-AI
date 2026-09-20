@@ -19,6 +19,10 @@ class SourceCreate(BaseModel):
     checksum: str | None = None
     language: str | None = None
     owner: str | None = None
+    license: str | None = None
+    jurisdiction: str | None = None
+    acquisition_time: str | None = None
+    ingestion_policy: dict[str, Any] = Field(default_factory=dict)
 
 
 class SourceResponse(BaseModel):
