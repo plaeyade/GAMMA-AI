@@ -15,6 +15,7 @@ class Settings:
     s3_bucket: str
     s3_access_key_id: str
     s3_secret_access_key: str
+    local_artifact_root: str = "data/artifacts"
     log_level: str = "INFO"
     otel_enabled: bool = False
 
@@ -57,6 +58,7 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
         s3_bucket=source.get("GAMMA_S3_BUCKET", "gamma-dev"),
         s3_access_key_id=source.get("GAMMA_S3_ACCESS_KEY_ID", ""),
         s3_secret_access_key=source.get("GAMMA_S3_SECRET_ACCESS_KEY", ""),
+        local_artifact_root=source.get("GAMMA_LOCAL_ARTIFACT_ROOT", "data/artifacts"),
         log_level=source.get("GAMMA_LOG_LEVEL", "INFO"),
         otel_enabled=source.get("GAMMA_OTEL_ENABLED", "false").lower() == "true",
     )
