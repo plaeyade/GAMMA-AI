@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from datetime import datetime
 from pathlib import Path
 
 from gamma_core.errors import ConflictError, NotFoundError
@@ -11,6 +12,7 @@ from gamma_domain.models import (
     IngestionStatus,
     Source,
     SourceType,
+    Artifact,
 )
 
 
@@ -75,6 +77,21 @@ class SQLiteRepository:
                     """,
                     (idempotency_key, source.source_id),
                 )
+            metadata = {
+                "license": source.license,
+                "jurisdiction": source.jurisdiction,
+                "acquisition_time": source.acquisition_time.isoformat()
+                if source.acquisition_time
+                else None,
+                "ingestion_policy": json.dumps(source.ingestion_policy, sort_keys=True),
+            }
+            for key, value in metadata.items():
+                if value is not None:
+                    connection.execute(
+                        """INSERT INTO source_registration_metadata (source_id, key, value)
+                        VALUES (?, ?, ?)""",
+                        (source.source_id, key, value),
+                    )
             return source
 
     def get_source(self, source_id: str) -> Source:
@@ -94,6 +111,68 @@ class SQLiteRepository:
             checksum=row["checksum"],
             language=row["language"],
             owner=row["owner"],
+            license=_metadata_value(self.database_path, row["source_id"], "license"),
+            jurisdiction=_metadata_value(self.database_path, row["source_id"], "jurisdiction"),
+            acquisition_time=_parse_optional_datetime(
+                _metadata_value(self.database_path, row["source_id"], "acquisition_time")
+            ),
+            ingestion_policy=json.loads(
+                _metadata_value(self.database_path, row["source_id"], "ingestion_policy") or "{}"
+            ),
+        )
+
+    def save_artifact(self, artifact: Artifact, idempotency_key: str | None = None) -> Artifact:
+        with self.connect() as connection:
+            if idempotency_key:
+                existing = connection.execute(
+                    "SELECT artifact_id FROM artifact_idempotency_keys WHERE idempotency_key = ?",
+                    (idempotency_key,),
+                ).fetchone()
+                if existing:
+                    stored = self.get_artifact(existing["artifact_id"])
+                    if (stored.source_id, stored.checksum, stored.size_bytes) != (
+                        artifact.source_id,
+                        artifact.checksum,
+                        artifact.size_bytes,
+                    ):
+                        raise ConflictError(
+                            "IDEMPOTENCY_CONFLICT",
+                            "Idempotency-Key was already used for a different artifact request.",
+                            {"idempotency_key": idempotency_key},
+                        )
+                    return stored
+            duplicate = connection.execute(
+                "SELECT artifact_id FROM artifacts WHERE source_id = ? AND checksum = ?",
+                (artifact.source_id, artifact.checksum),
+            ).fetchone()
+            if duplicate:
+                return self.get_artifact(duplicate["artifact_id"])
+            connection.execute(
+                """INSERT INTO artifacts
+                (artifact_id, source_id, storage_uri, checksum, mime_type, size_bytes, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                (artifact.artifact_id, artifact.source_id, artifact.storage_uri, artifact.checksum,
+                 artifact.mime_type, artifact.size_bytes, artifact.created_at.isoformat()),
+            )
+            if idempotency_key:
+                connection.execute(
+                    "INSERT INTO artifact_idempotency_keys (idempotency_key, artifact_id) VALUES (?, ?)",
+                    (idempotency_key, artifact.artifact_id),
+                )
+            return artifact
+
+    def get_artifact(self, artifact_id: str) -> Artifact:
+        with self.connect() as connection:
+            row = connection.execute(
+                "SELECT * FROM artifacts WHERE artifact_id = ?", (artifact_id,)
+            ).fetchone()
+        if row is None:
+            raise NotFoundError("artifact", artifact_id)
+        return Artifact(
+            artifact_id=row["artifact_id"], source_id=row["source_id"],
+            storage_uri=row["storage_uri"], checksum=row["checksum"],
+            mime_type=row["mime_type"], size_bytes=row["size_bytes"],
+            created_at=datetime.fromisoformat(row["created_at"].replace("Z", "+00:00")),
         )
 
     def save_ingestion_job(self, job: IngestionJob) -> IngestionJob:
@@ -147,4 +226,23 @@ def _source_fingerprint(source: Source) -> tuple[object, ...]:
         source.checksum,
         source.language,
         source.owner,
+        source.license,
+        source.jurisdiction,
+        source.acquisition_time,
+        json.dumps(source.ingestion_policy, sort_keys=True),
     )
+
+
+def _metadata_value(database_path: str, source_id: str, key: str) -> str | None:
+    with sqlite3.connect(database_path) as connection:
+        row = connection.execute(
+            "SELECT value FROM source_registration_metadata WHERE source_id = ? AND key = ?",
+            (source_id, key),
+        ).fetchone()
+    return row[0] if row else None
+
+
+def _parse_optional_datetime(value: str | None) -> datetime | None:
+    if value is None:
+        return None
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))
