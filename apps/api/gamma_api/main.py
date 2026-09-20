@@ -8,15 +8,15 @@ from gamma_config import load_settings
 from gamma_core.errors import ConflictError, GammaError, NotFoundError
 from gamma_observability import configure_logging, configure_tracing, correlation_id_var
 from gamma_persistence import SQLiteRepository
-from gamma_storage import check_http_dependency
+from gamma_storage import LocalImmutableObjectStore, check_http_dependency
 
 from gamma_api.schemas import IngestionJobCreate, SourceCreate
-from gamma_api.services import IngestionService, SourceService
+from gamma_api.services import ArtifactService, IngestionService, SourceService
 
 
 def create_app() -> object:
     try:
-        from fastapi import FastAPI, Header, Request
+        from fastapi import FastAPI, File, Header, Request, UploadFile
         from fastapi.responses import JSONResponse
     except Exception as exc:  # pragma: no cover
         raise RuntimeError("FastAPI dependencies are required to run the API") from exc
@@ -31,6 +31,9 @@ def create_app() -> object:
     repository.apply_migrations(Path("migrations/versions"))
     source_service = SourceService(repository)
     ingestion_service = IngestionService(repository)
+    artifact_service = ArtifactService(
+        repository, LocalImmutableObjectStore(Path(settings.local_artifact_root))
+    )
 
     @app.middleware("http")
     async def request_context(request: Request, call_next: object) -> object:
@@ -90,6 +93,10 @@ def create_app() -> object:
             checksum=payload.checksum,
             language=payload.language,
             owner=payload.owner,
+            license=payload.license,
+            jurisdiction=payload.jurisdiction,
+            acquisition_time=payload.acquisition_time,
+            ingestion_policy=payload.ingestion_policy,
             idempotency_key=idempotency_key,
         )
         return {
@@ -110,6 +117,32 @@ def create_app() -> object:
                 "checksum": source.checksum,
                 "language": source.language,
                 "owner": source.owner,
+            },
+            "metadata": {"request_id": correlation_id_var.get()},
+        }
+
+    @app.post("/v1/sources/{source_id}/artifacts", status_code=201)
+    async def create_artifact(
+        source_id: str,
+        file: UploadFile = File(...),
+        idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    ) -> dict[str, object]:
+        data = await file.read()
+        artifact = artifact_service.register_artifact(
+            source_id=source_id,
+            data=data,
+            mime_type=file.content_type or "application/octet-stream",
+            idempotency_key=idempotency_key,
+        )
+        return {
+            "data": {
+                "artifact_id": artifact.artifact_id,
+                "source_id": artifact.source_id,
+                "checksum": artifact.checksum,
+                "mime_type": artifact.mime_type,
+                "size_bytes": artifact.size_bytes,
+                "storage_uri": artifact.storage_uri,
+                "immutability": "content_addressed",
             },
             "metadata": {"request_id": correlation_id_var.get()},
         }
