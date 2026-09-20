@@ -47,6 +47,10 @@ class Source:
     checksum: str | None = None
     language: str | None = None
     owner: str | None = None
+    license: str | None = None
+    jurisdiction: str | None = None
+    acquisition_time: datetime | None = None
+    ingestion_policy: dict[str, Any] = field(default_factory=dict)
     created_at: datetime = field(default_factory=utc_now)
 
     def __post_init__(self) -> None:
@@ -58,6 +62,8 @@ class Source:
             raise ValueError("domain is required")
         if self.checksum is not None and len(self.checksum.strip()) < 8:
             raise ValueError("checksum must be meaningful when provided")
+        if self.jurisdiction is not None and not self.jurisdiction.strip():
+            raise ValueError("jurisdiction cannot be blank when provided")
 
 
 @dataclass(frozen=True, slots=True)
@@ -77,6 +83,12 @@ class Artifact:
             raise ValueError("source_id must reference a Source")
         if self.size_bytes < 0:
             raise ValueError("size_bytes cannot be negative")
+        if len(self.checksum) != 64 or any(c not in "0123456789abcdef" for c in self.checksum):
+            raise ValueError("checksum must be a lowercase SHA-256 hex digest")
+        if not self.mime_type.strip():
+            raise ValueError("mime_type is required")
+        if not self.storage_uri.strip():
+            raise ValueError("storage_uri is required")
 
 
 @dataclass(frozen=True, slots=True)
