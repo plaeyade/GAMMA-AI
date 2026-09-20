@@ -66,4 +66,6 @@ Copy `.env.example` to `.env` for local development and replace every placeholde
 
 ## Sprint 002 Handoff
 
-Sprint 002 can add source registration workflows and immutable artifact storage behavior on top of these contracts. Raw artifact immutability is represented here as a storage contract and migration baseline, not as a full ingestion implementation.
+Sprint 002 adds source registration metadata, raw artifact registration, SHA-256 content-addressed immutable storage, local storage for tests/development and idempotent artifact persistence. It intentionally does not implement extraction, OCR, normalization, chunking, embeddings, retrieval, knowledge graph logic or clinical logic.
+
+See `docs/sprint-002/validation-report.md` and `docs/adr/ADR-0004-object-storage-strategy.md` for the validation record and storage decision.
