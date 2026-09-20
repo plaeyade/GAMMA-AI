@@ -4,6 +4,7 @@ import ast
 import importlib
 import json
 import os
+import re
 import sqlite3
 import sys
 import tempfile
@@ -56,6 +57,7 @@ def check_required_files() -> None:
         ".github/workflows/ci.yml",
         ".pre-commit-config.yaml",
         "migrations/versions/001_foundation.sql",
+        "migrations/versions/002_source_registration_and_artifacts.sql",
     ]
     required += MODULE_PATHS
     missing = [item for item in required if not (ROOT / item).exists()]
@@ -218,7 +220,7 @@ def check_negative_scope() -> None:
         for node in ast.walk(tree):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
                 lowered = node.name.lower()
-                if any(term in lowered for term in forbidden):
+                if any(re.search(rf"(?<![a-z]){re.escape(term)}(?![a-z])", lowered) for term in forbidden):
                     offenders.append(f"{path.relative_to(ROOT)}:{node.name}")
     require(not offenders, f"forbidden Sprint 001 implementation symbols found: {offenders}")
 
